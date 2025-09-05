@@ -18,6 +18,7 @@ contract GigMarketplace is
         string title;
         string description;
         uint256 price;
+        address token;
         bool isActive;
         bool isCompleted;
     }
@@ -73,7 +74,8 @@ contract GigMarketplace is
     function createGig(
         string memory _title,
         string memory _description,
-        uint256 _price
+        uint256 _price,
+        address _token
     ) external whenNotPaused {
         require(bytes(_title).length > 0, "Title cannot be empty");
         require(_price > 0, "Price must be greater than 0");
@@ -84,6 +86,7 @@ contract GigMarketplace is
             title: _title,
             description: _description,
             price: _price,
+            token: _token,
             isActive: true,
             isCompleted: false
         });
@@ -98,7 +101,8 @@ contract GigMarketplace is
         uint256 _gigId,
         string memory _title,
         string memory _description,
-        uint256 _price
+        uint256 _price,
+        address _token
     ) external onlyProvider(_gigId) {
         require(gigs[_gigId].isActive, "Gig is not active");
         require(bytes(_title).length > 0, "Title cannot be empty");
@@ -107,6 +111,7 @@ contract GigMarketplace is
         gigs[_gigId].title = _title;
         gigs[_gigId].description = _description;
         gigs[_gigId].price = _price;
+        gigs[_gigId].token = _token;
 
         emit GigUpdated(_gigId, _title, _description, _price);
     }
@@ -195,5 +200,56 @@ contract GigMarketplace is
 
     function getOrder(uint256 _orderId) external view returns (Order memory) {
         return orders[_orderId];
+    }
+
+    function getAllActiveGigs() external view returns (Gig[] memory) {
+        uint256 activeCount = 0;
+        
+        for (uint256 i = 1; i < nextGigId; i++) {
+            if (gigs[i].isActive) {
+                activeCount++;
+            }
+        }
+        
+        Gig[] memory activeGigs = new Gig[](activeCount);
+        uint256 currentIndex = 0;
+        
+        for (uint256 i = 1; i < nextGigId; i++) {
+            if (gigs[i].isActive) {
+                activeGigs[currentIndex] = gigs[i];
+                currentIndex++;
+            }
+        }
+        
+        return activeGigs;
+    }
+
+    function getAllProviders() external view returns (address[] memory) {
+        uint256 providerCount = 0;
+        address[] memory tempProviders = new address[](nextGigId - 1);
+        
+        for (uint256 i = 1; i < nextGigId; i++) {
+            address provider = gigs[i].provider;
+            bool exists = false;
+            
+            for (uint256 j = 0; j < providerCount; j++) {
+                if (tempProviders[j] == provider) {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            if (!exists) {
+                tempProviders[providerCount] = provider;
+                providerCount++;
+            }
+        }
+        
+        address[] memory providers = new address[](providerCount);
+        for (uint256 i = 0; i < providerCount; i++) {
+            providers[i] = tempProviders[i];
+        }
+        
+        return providers;
     }
 }
