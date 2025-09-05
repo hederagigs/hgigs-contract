@@ -1,0 +1,23 @@
+{
+  "name": "gig-marketplace-contract",
+  "version": "1.0.0",
+  "description": "Smart contract for gig marketplace on Hedera",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network hedera_testnet",
+    "deploy:mainnet": "hardhat run scripts/deploy.js --network hedera_mainnet",
+    "upgrade:testnet": "hardhat run scripts/upgrade.js --network hedera_testnet",
+    "upgrade:mainnet": "hardhat run scripts/upgrade.js --network hedera_mainnet"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts-upgradeable": "^5.0.0",
+    "@openzeppelin/hardhat-upgrades": "^3.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0",
+    "dotenv": "^16.3.1"
+  }
+}

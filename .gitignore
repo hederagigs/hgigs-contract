@@ -13,3 +13,10 @@ states/
 # Optional
 .env
 .env.local
+
+node_modules/
+cache/
+.openzeppelin/
+.vscode/
+.claude/
+.cursor/
