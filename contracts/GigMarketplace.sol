@@ -196,4 +196,55 @@ contract GigMarketplace is
     function getOrder(uint256 _orderId) external view returns (Order memory) {
         return orders[_orderId];
     }
+
+    function getAllActiveGigs() external view returns (Gig[] memory) {
+        uint256 activeCount = 0;
+        
+        for (uint256 i = 1; i < nextGigId; i++) {
+            if (gigs[i].isActive) {
+                activeCount++;
+            }
+        }
+        
+        Gig[] memory activeGigs = new Gig[](activeCount);
+        uint256 currentIndex = 0;
+        
+        for (uint256 i = 1; i < nextGigId; i++) {
+            if (gigs[i].isActive) {
+                activeGigs[currentIndex] = gigs[i];
+                currentIndex++;
+            }
+        }
+        
+        return activeGigs;
+    }
+
+    function getAllProviders() external view returns (address[] memory) {
+        uint256 providerCount = 0;
+        address[] memory tempProviders = new address[](nextGigId - 1);
+        
+        for (uint256 i = 1; i < nextGigId; i++) {
+            address provider = gigs[i].provider;
+            bool exists = false;
+            
+            for (uint256 j = 0; j < providerCount; j++) {
+                if (tempProviders[j] == provider) {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            if (!exists) {
+                tempProviders[providerCount] = provider;
+                providerCount++;
+            }
+        }
+        
+        address[] memory providers = new address[](providerCount);
+        for (uint256 i = 0; i < providerCount; i++) {
+            providers[i] = tempProviders[i];
+        }
+        
+        return providers;
+    }
 }
