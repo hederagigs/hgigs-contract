@@ -18,9 +18,9 @@ contract GigMarketplace is
         string title;
         string description;
         uint256 price;
-        address token;
         bool isActive;
         bool isCompleted;
+        address token;
     }
 
     struct Order {
