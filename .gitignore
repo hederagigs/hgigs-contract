@@ -1,3 +1,5 @@
+.DS_Store
+
 # Remix compiler artifacts
 **/artifacts/
 **/artifacts/**
