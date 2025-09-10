@@ -145,7 +145,8 @@ contract GigMarketplace is
         nextOrderId++;
     }
 
-    function completeOrder(uint256 _orderId) external onlyProvider(_orderId) {
+    function completeOrder(uint256 _orderId) external {
+        require(msg.sender == orders[_orderId].provider, "Only gig provider can call this function");
         require(!orders[_orderId].isCompleted, "Order is already completed");
         
         orders[_orderId].isCompleted = true;
