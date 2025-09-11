@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract GigMarketplace is 
     Initializable, 
@@ -33,6 +34,7 @@ contract GigMarketplace is
         bool isPaid;
         bool paymentReleased;
         uint256 createdAt;
+        uint256 paidAmount;
     }
 
     mapping(uint256 => Gig) public gigs;
@@ -125,7 +127,7 @@ contract GigMarketplace is
         emit GigDeactivated(_gigId);
     }
 
-    function orderGig(uint256 _gigId) external whenNotPaused {
+    function orderGig(uint256 _gigId) external whenNotPaused returns (uint256) {
         require(gigs[_gigId].isActive, "Gig is not active");
         require(msg.sender != gigs[_gigId].provider, "Cannot order your own gig");
 
@@ -138,24 +140,46 @@ contract GigMarketplace is
             isCompleted: false,
             isPaid: false,
             paymentReleased: false,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            paidAmount: 0
         });
 
         clientOrders[msg.sender].push(nextOrderId);
 
         emit OrderCreated(nextOrderId, _gigId, msg.sender, gigs[_gigId].price);
+        uint256 orderId = nextOrderId;
         nextOrderId++;
+        return orderId;
     }
 
     function payOrder(uint256 _orderId) external payable whenNotPaused nonReentrant {
         require(orders[_orderId].id != 0, "Order does not exist");
         require(!orders[_orderId].isPaid, "Order is already paid");
         require(msg.sender == orders[_orderId].client, "Only order client can pay");
-        require(msg.value == orders[_orderId].amount, "Incorrect payment amount");
+        //require(msg.value == orders[_orderId].amount, "Incorrect payment amount");
 
         orders[_orderId].isPaid = true;
+        orders[_orderId].paidAmount = msg.value;
         
         emit OrderPaid(_orderId, msg.sender, msg.value);
+    }
+
+    function payOrderWithToken(uint256 _orderId) external whenNotPaused nonReentrant {
+        require(orders[_orderId].id != 0, "Order does not exist");
+        require(!orders[_orderId].isPaid, "Order is already paid");
+        require(msg.sender == orders[_orderId].client, "Only order client can pay");
+        
+        uint256 gigId = orders[_orderId].gigId;
+        address tokenAddress = gigs[gigId].token;
+        require(tokenAddress != address(0), "Token address not set for this gig");
+        
+        IERC20 token = IERC20(tokenAddress);
+        require(token.transferFrom(msg.sender, address(this), orders[_orderId].amount), "Token transfer failed");
+
+        orders[_orderId].isPaid = true;
+        orders[_orderId].paidAmount = orders[_orderId].amount;
+        
+        emit OrderPaid(_orderId, msg.sender, orders[_orderId].amount);
     }
 
     function completeOrder(uint256 _orderId) external {
@@ -176,9 +200,19 @@ contract GigMarketplace is
         uint256 platformFee = (orders[_orderId].amount * platformFeePercent) / 100;
         uint256 providerAmount = orders[_orderId].amount - platformFee;
 
-        // Transfer funds from contract to provider and platform
-        orders[_orderId].provider.transfer(providerAmount);
-        payable(owner()).transfer(platformFee);
+        uint256 gigId = orders[_orderId].gigId;
+        address tokenAddress = gigs[gigId].token;
+        
+        if (tokenAddress == address(0)) {
+            // Native token (ETH) payment
+            orders[_orderId].provider.transfer(providerAmount);
+            payable(owner()).transfer(platformFee);
+        } else {
+            // ERC20 token payment
+            IERC20 token = IERC20(tokenAddress);
+            require(token.transfer(orders[_orderId].provider, providerAmount), "Provider token transfer failed");
+            require(token.transfer(owner(), platformFee), "Platform fee token transfer failed");
+        }
 
         emit PaymentReleased(_orderId, orders[_orderId].provider, providerAmount);
     }
@@ -216,6 +250,11 @@ contract GigMarketplace is
 
     function getOrder(uint256 _orderId) external view returns (Order memory) {
         return orders[_orderId];
+    }
+
+    function getOrderPaymentAmount(uint256 _orderId) external view returns (uint256) {
+        require(orders[_orderId].id != 0, "Order does not exist");
+        return orders[_orderId].amount;
     }
 
     function getAllActiveGigs() external view returns (Gig[] memory) {
