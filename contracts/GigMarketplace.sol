@@ -31,6 +31,7 @@ contract GigMarketplace is
         uint256 amount;
         bool isCompleted;
         bool isPaid;
+        bool paymentReleased;
         uint256 createdAt;
     }
 
@@ -47,6 +48,7 @@ contract GigMarketplace is
     event GigUpdated(uint256 indexed gigId, string title, string description, uint256 price);
     event GigDeactivated(uint256 indexed gigId);
     event OrderCreated(uint256 indexed orderId, uint256 indexed gigId, address indexed client, uint256 amount);
+    event OrderPaid(uint256 indexed orderId, address indexed client, uint256 amount);
     event OrderCompleted(uint256 indexed orderId);
     event PaymentReleased(uint256 indexed orderId, address indexed provider, uint256 amount);
 
@@ -123,9 +125,8 @@ contract GigMarketplace is
         emit GigDeactivated(_gigId);
     }
 
-    function orderGig(uint256 _gigId) external payable whenNotPaused nonReentrant {
+    function orderGig(uint256 _gigId) external whenNotPaused {
         require(gigs[_gigId].isActive, "Gig is not active");
-        require(msg.value == gigs[_gigId].price, "Incorrect payment amount");
         require(msg.sender != gigs[_gigId].provider, "Cannot order your own gig");
 
         orders[nextOrderId] = Order({
@@ -133,16 +134,28 @@ contract GigMarketplace is
             gigId: _gigId,
             client: payable(msg.sender),
             provider: gigs[_gigId].provider,
-            amount: msg.value,
+            amount: gigs[_gigId].price,  // Use gig price, not msg.value
             isCompleted: false,
             isPaid: false,
+            paymentReleased: false,
             createdAt: block.timestamp
         });
 
         clientOrders[msg.sender].push(nextOrderId);
 
-        emit OrderCreated(nextOrderId, _gigId, msg.sender, msg.value);
+        emit OrderCreated(nextOrderId, _gigId, msg.sender, gigs[_gigId].price);
         nextOrderId++;
+    }
+
+    function payOrder(uint256 _orderId) external payable whenNotPaused nonReentrant {
+        require(orders[_orderId].id != 0, "Order does not exist");
+        require(!orders[_orderId].isPaid, "Order is already paid");
+        require(msg.sender == orders[_orderId].client, "Only order client can pay");
+        require(msg.value == orders[_orderId].amount, "Incorrect payment amount");
+
+        orders[_orderId].isPaid = true;
+        
+        emit OrderPaid(_orderId, msg.sender, msg.value);
     }
 
     function completeOrder(uint256 _orderId) external {
@@ -155,13 +168,15 @@ contract GigMarketplace is
 
     function releasePayment(uint256 _orderId) external onlyClient(_orderId) nonReentrant {
         require(orders[_orderId].isCompleted, "Order is not completed");
-        require(!orders[_orderId].isPaid, "Payment already released");
+        require(orders[_orderId].isPaid, "Order is not paid yet");
+        require(!orders[_orderId].paymentReleased, "Payment already released");
 
-        orders[_orderId].isPaid = true;
+        orders[_orderId].paymentReleased = true;
 
         uint256 platformFee = (orders[_orderId].amount * platformFeePercent) / 100;
         uint256 providerAmount = orders[_orderId].amount - platformFee;
 
+        // Transfer funds from contract to provider and platform
         orders[_orderId].provider.transfer(providerAmount);
         payable(owner()).transfer(platformFee);
 
