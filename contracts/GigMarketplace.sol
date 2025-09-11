@@ -152,7 +152,7 @@ contract GigMarketplace is
         require(orders[_orderId].id != 0, "Order does not exist");
         require(!orders[_orderId].isPaid, "Order is already paid");
         require(msg.sender == orders[_orderId].client, "Only order client can pay");
-        require(msg.value == orders[_orderId].amount, "Incorrect payment amount");
+        //require(msg.value == orders[_orderId].amount, "Incorrect payment amount");
 
         orders[_orderId].isPaid = true;
         
@@ -244,6 +244,11 @@ contract GigMarketplace is
 
     function getOrder(uint256 _orderId) external view returns (Order memory) {
         return orders[_orderId];
+    }
+
+    function getOrderPaymentAmount(uint256 _orderId) external view returns (uint256) {
+        require(orders[_orderId].id != 0, "Order does not exist");
+        return orders[_orderId].amount;
     }
 
     function getAllActiveGigs() external view returns (Gig[] memory) {
