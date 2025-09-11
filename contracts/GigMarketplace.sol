@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract GigMarketplace is 
     Initializable, 
@@ -158,6 +159,23 @@ contract GigMarketplace is
         emit OrderPaid(_orderId, msg.sender, msg.value);
     }
 
+    function payOrderWithToken(uint256 _orderId) external whenNotPaused nonReentrant {
+        require(orders[_orderId].id != 0, "Order does not exist");
+        require(!orders[_orderId].isPaid, "Order is already paid");
+        require(msg.sender == orders[_orderId].client, "Only order client can pay");
+        
+        uint256 gigId = orders[_orderId].gigId;
+        address tokenAddress = gigs[gigId].token;
+        require(tokenAddress != address(0), "Token address not set for this gig");
+        
+        IERC20 token = IERC20(tokenAddress);
+        require(token.transferFrom(msg.sender, address(this), orders[_orderId].amount), "Token transfer failed");
+
+        orders[_orderId].isPaid = true;
+        
+        emit OrderPaid(_orderId, msg.sender, orders[_orderId].amount);
+    }
+
     function completeOrder(uint256 _orderId) external {
         require(msg.sender == orders[_orderId].provider, "Only gig provider can call this function");
         require(!orders[_orderId].isCompleted, "Order is already completed");
@@ -176,9 +194,19 @@ contract GigMarketplace is
         uint256 platformFee = (orders[_orderId].amount * platformFeePercent) / 100;
         uint256 providerAmount = orders[_orderId].amount - platformFee;
 
-        // Transfer funds from contract to provider and platform
-        orders[_orderId].provider.transfer(providerAmount);
-        payable(owner()).transfer(platformFee);
+        uint256 gigId = orders[_orderId].gigId;
+        address tokenAddress = gigs[gigId].token;
+        
+        if (tokenAddress == address(0)) {
+            // Native token (ETH) payment
+            orders[_orderId].provider.transfer(providerAmount);
+            payable(owner()).transfer(platformFee);
+        } else {
+            // ERC20 token payment
+            IERC20 token = IERC20(tokenAddress);
+            require(token.transfer(orders[_orderId].provider, providerAmount), "Provider token transfer failed");
+            require(token.transfer(owner(), platformFee), "Platform fee token transfer failed");
+        }
 
         emit PaymentReleased(_orderId, orders[_orderId].provider, providerAmount);
     }
