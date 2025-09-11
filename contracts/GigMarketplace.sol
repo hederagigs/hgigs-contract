@@ -30,11 +30,11 @@ contract GigMarketplace is
         address payable client;
         address payable provider;
         uint256 amount;
-        uint256 paidAmount;
         bool isCompleted;
         bool isPaid;
         bool paymentReleased;
         uint256 createdAt;
+        uint256 paidAmount;
     }
 
     mapping(uint256 => Gig) public gigs;
@@ -127,7 +127,7 @@ contract GigMarketplace is
         emit GigDeactivated(_gigId);
     }
 
-    function orderGig(uint256 _gigId) external whenNotPaused {
+    function orderGig(uint256 _gigId) external whenNotPaused returns (uint256) {
         require(gigs[_gigId].isActive, "Gig is not active");
         require(msg.sender != gigs[_gigId].provider, "Cannot order your own gig");
 
@@ -137,17 +137,19 @@ contract GigMarketplace is
             client: payable(msg.sender),
             provider: gigs[_gigId].provider,
             amount: gigs[_gigId].price,  // Use gig price, not msg.value
-            paidAmount: 0,
             isCompleted: false,
             isPaid: false,
             paymentReleased: false,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            paidAmount: 0
         });
 
         clientOrders[msg.sender].push(nextOrderId);
 
         emit OrderCreated(nextOrderId, _gigId, msg.sender, gigs[_gigId].price);
+        uint256 orderId = nextOrderId;
         nextOrderId++;
+        return orderId;
     }
 
     function payOrder(uint256 _orderId) external payable whenNotPaused nonReentrant {
