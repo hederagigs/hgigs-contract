@@ -30,6 +30,7 @@ contract GigMarketplace is
         address payable client;
         address payable provider;
         uint256 amount;
+        uint256 paidAmount;
         bool isCompleted;
         bool isPaid;
         bool paymentReleased;
@@ -136,6 +137,7 @@ contract GigMarketplace is
             client: payable(msg.sender),
             provider: gigs[_gigId].provider,
             amount: gigs[_gigId].price,  // Use gig price, not msg.value
+            paidAmount: 0,
             isCompleted: false,
             isPaid: false,
             paymentReleased: false,
@@ -155,6 +157,7 @@ contract GigMarketplace is
         //require(msg.value == orders[_orderId].amount, "Incorrect payment amount");
 
         orders[_orderId].isPaid = true;
+        orders[_orderId].paidAmount = msg.value;
         
         emit OrderPaid(_orderId, msg.sender, msg.value);
     }
@@ -172,6 +175,7 @@ contract GigMarketplace is
         require(token.transferFrom(msg.sender, address(this), orders[_orderId].amount), "Token transfer failed");
 
         orders[_orderId].isPaid = true;
+        orders[_orderId].paidAmount = orders[_orderId].amount;
         
         emit OrderPaid(_orderId, msg.sender, orders[_orderId].amount);
     }
