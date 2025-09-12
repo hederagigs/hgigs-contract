@@ -35,6 +35,7 @@ contract GigMarketplace is
         bool paymentReleased;
         uint256 createdAt;
         uint256 paidAmount;
+        string deliverable;
     }
 
     mapping(uint256 => Gig) public gigs;
@@ -141,7 +142,8 @@ contract GigMarketplace is
             isPaid: false,
             paymentReleased: false,
             createdAt: block.timestamp,
-            paidAmount: 0
+            paidAmount: 0,
+            deliverable: ""
         });
 
         clientOrders[msg.sender].push(nextOrderId);
@@ -182,11 +184,14 @@ contract GigMarketplace is
         emit OrderPaid(_orderId, msg.sender, orders[_orderId].amount);
     }
 
-    function completeOrder(uint256 _orderId) external {
+    function completeOrder(uint256 _orderId, string memory _deliverable) external {
         require(msg.sender == orders[_orderId].provider, "Only gig provider can call this function");
         require(!orders[_orderId].isCompleted, "Order is already completed");
+        require(orders[_orderId].isPaid, "Order must be paid before completion");
+        require(bytes(_deliverable).length > 0, "Deliverable cannot be empty");
         
         orders[_orderId].isCompleted = true;
+        orders[_orderId].deliverable = _deliverable;
         emit OrderCompleted(_orderId);
     }
 
@@ -255,6 +260,11 @@ contract GigMarketplace is
     function getOrderPaymentAmount(uint256 _orderId) external view returns (uint256) {
         require(orders[_orderId].id != 0, "Order does not exist");
         return orders[_orderId].amount;
+    }
+
+    function getOrderDeliverable(uint256 _orderId) external view returns (string memory) {
+        require(orders[_orderId].id != 0, "Order does not exist");
+        return orders[_orderId].deliverable;
     }
 
     function getAllActiveGigs() external view returns (Gig[] memory) {
